@@ -384,7 +384,7 @@
             userData.status = 'ENTREPRENEUR';
             document.getElementById('user-status').style.color = 'var(--gold)';
             document.getElementById('my-bank-section').style.display = 'block';
-            document.getElementById('my-bank-capital').innerText = urlParams.get('my_bank_capital') || "0";
+            document.getElementById('my-bank-capital').innerText = params.get('my_bank_capital') || "0";
             document.getElementById('my-bank-name').innerText = params.get('my_bank_name') || 'My Bank';
             const lRate = params.get('loan_rate') || 5;
             const dRate = params.get('depo_rate') || 2;
