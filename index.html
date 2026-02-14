@@ -219,33 +219,13 @@
             
             <div id="my-bank-section" style="display: none; margin-bottom: 25px;">
                 <div class="section-title">Мой Банк</div>
-                
-                <div class="bank-item vip" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px;">
-                    
-                    <div style="display: flex; align-items: center; flex-grow: 1; cursor: pointer;" onclick="manageMyBank()">
-                        <div class="bank-icon" style="background:var(--gold); color:black; min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 12px;">
-                            <i class="fa-solid fa-crown"></i>
-                        </div>
-                        
-                        <div>
-                            <h3 id="my-bank-name" style="margin: 0; font-size: 16px; line-height: 1.2;">My Bank</h3>
-                            <p style="margin: 3px 0 0 0; font-size: 12px; opacity: 0.7;">
-                                Капитал: <span id="my-bank-capital" style="color: var(--gold); font-weight: bold;">0</span> ₮
-                            </p>
-                        </div>
+                <div class="bank-item vip" onclick="manageMyBank()">
+                    <div class="bank-icon" style="background:var(--gold); color:black;"><i class="fa-solid fa-crown"></i></div>
+                    <div class="bank-info">
+                        <h3 id="my-bank-name">My Bank</h3>
+                        <p>Капитал: <span id="my-bank-capital">0</span> ₮</p>
                     </div>
-
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        
-                        <div onclick="topUpCapital()" style="cursor: pointer; padding: 5px;">
-                            <i class="fa-solid fa-circle-plus" style="color: #4ade80; font-size: 26px;"></i>
-                        </div>
-                        
-                        <div onclick="manageMyBank()" style="cursor: pointer; font-size: 14px; opacity: 0.5;">
-                            ⚙️ <i class="fa-solid fa-chevron-right"></i>
-                        </div>
-                        
-                    </div>
+                    <div class="bank-arrow">Управление ></div>
                 </div>
             </div>
             
@@ -340,6 +320,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // --- 1. АНИМАЦИЯ ЗАГРУЗКИ ---
         const steps = [
             { t: "Biometric Scan...", w: "30%" },
             { t: "Decrypting Wallet...", w: "60%" },
@@ -362,6 +343,7 @@
         }
         runLoader();
 
+        // --- 2. ПАРСИНГ ДАННЫХ ---
         const params = new URLSearchParams(window.location.search);
         
         let userData = {
@@ -372,9 +354,9 @@
             status: 'Guest'
         };
 
-        document.getElementById('user-name').innerText = userData.name;
-        document.getElementById('user-rank').innerText = userData.rank;
-        document.querySelectorAll('user-balance').forEach(el => el.innerText = userData.balance.toLocaleString());
+        document.getElementById('username').innerText = userData.name;
+        document.getElementById('rank').innerText = userData.rank;
+        document.querySelectorAll('#balance').forEach(el => el.innerText = userData.balance.toLocaleString());
         
         if (tg.initDataUnsafe?.user?.photo_url) {
             document.getElementById('avatar').style.backgroundImage = `url('${tg.initDataUnsafe.user.photo_url}')`;
@@ -384,8 +366,8 @@
             userData.status = 'ENTREPRENEUR';
             document.getElementById('user-status').style.color = 'var(--gold)';
             document.getElementById('my-bank-section').style.display = 'block';
-            document.getElementById('my-bank-capital').innerText = urlParams.get('my_bank_capital') || "0";
             document.getElementById('my-bank-name').innerText = params.get('my_bank_name') || 'My Bank';
+            // Заполняем inputs владельца
             const lRate = params.get('loan_rate') || 5;
             const dRate = params.get('depo_rate') || 2;
             document.getElementById('owner-loan-rate').value = lRate;
@@ -397,6 +379,7 @@
         }
         document.getElementById('user-status').innerText = userData.status;
 
+        // Генерация списка банков
         let banks = [];
         try {
             const rawBanks = params.get('banks_json');
@@ -433,6 +416,8 @@
             list.appendChild(el);
         });
 
+        // --- 3. АКТИВНЫЕ ПРОДУКТЫ (Парсинг JSON) ---
+        // Предполагаем, что бот передает active_products_json (список)
         let activeProducts = [];
         try {
             const rawProd = params.get('active_products_json');
@@ -444,46 +429,19 @@
             prodList.innerHTML = "";
             activeProducts.forEach(p => {
                 const el = document.createElement('div');
+                // p.type: 'loan' или 'deposit'
                 el.className = `product-card ${p.type === 'loan' ? 'loan' : 'depo'}`;
                 el.innerHTML = `
-                    <div style="display:flex; justify-content:space-between;">
-                        <span style="font-weight:bold; font-size:14px;">${p.bank_name}</span>
-                        <span style="font-size:10px; opacity:0.7;">#${p.id}</span>
-                    </div>
+                    <div style="font-weight:bold; font-size:14px;">${p.bank_name}</div>
                     <div style="font-size:18px; font-weight:700; margin:5px 0;">${p.amount} ₮</div>
-                    <div style="display:flex; justify-content:space-between; align-items:end;">
-                        <div style="font-size:12px; color:#aaa;">${p.type === 'loan' ? 'Кредит' : 'Вклад'}</div>
-                        <button onclick="requestClose('${p.type}', ${p.id})" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:10px;">
-                            Закрыть 🔒
-                        </button>
-                    </div>
+                    <div style="font-size:12px; color:#aaa;">${p.type === 'loan' ? 'Кредит (Долг)' : 'Вклад (Актив)'}</div>
                 `;
                 prodList.appendChild(el);
             });
-        } else {
-             prodList.innerHTML = '<div style="text-align: center; color: #555; padding: 20px;">У вас нет активных услуг</div>';
         }
 
-        function topUpCapital() {
-            const amount = prompt("Введите сумму для пополнения капитала банка:");
-            if (amount && parseInt(amount) > 0) {
-                fireConfetti();
-                tg.sendData(JSON.stringify({ 
-                    action: "top_up_capital", 
-                    amount: parseInt(amount) 
-                }));
-            }
-        }
 
-        function requestClose(type, id) {
-            if(!confirm("Запросить досрочное закрытие? Требуется одобрение владельца банка.")) return;
-            tg.sendData(JSON.stringify({ 
-                action: "request_close", 
-                product_type: type,
-                product_id: id 
-            }));
-        }
-
+        // --- 4. ЛОГИКА ИНТЕРФЕЙСА ---
         function setView(viewId) {
             document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -515,6 +473,7 @@
             const btn = document.getElementById('detail-btn');
             const rateLabel = document.getElementById('detail-rate');
 
+            // Сброс UI
             if (type === 'loan') {
                 rowDays.style.display = 'block';
                 btn.innerText = "ОФОРМИТЬ КРЕДИТ";
@@ -581,6 +540,7 @@
         }
 
         function manageMyBank() {
+            // Переключаем на экран управления ВНУТРИ приложения
             setView('manage'); 
         }
 
@@ -596,6 +556,7 @@
             tg.sendData(JSON.stringify(data));
         }
 
+        // КОНФЕТТИ
         function fireConfetti() {
             confetti({
                 particleCount: 100,
@@ -604,6 +565,7 @@
             });
         }
 
+        // Уведомления
         function openNotifications() { document.getElementById('notif-modal').style.display = 'flex'; }
         function closeNotifications(e) { if(e.target.id === 'notif-modal') e.target.style.display = 'none'; }
 
