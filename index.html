@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BidonPay</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        :root {
+            --bg: #09090b;
+            --card-bg: #18181b;
+            --primary: #3b82f6; /* Blue */
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --gold: #eab308;
+            --gold-glow: rgba(234, 179, 8, 0.3);
+            --text: #ffffff;
+            --text-muted: #a1a1aa;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --radius: 20px;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* === ЭКРАН ЗАГРУЗКИ BIDON PAY === */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s;
+        }
+        
+        .logo-container {
+            position: relative; width: 80px; height: 80px; margin-bottom: 30px;
+        }
+        .logo-circle {
+            width: 100%; height: 100%; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #60a5fa);
+            box-shadow: 0 0 30px var(--primary-glow);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 900; color: white;
+            animation: pulse 2s infinite;
+        }
+        .loading-steps { width: 200px; text-align: center; }
+        .step-text { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; height: 20px; }
+        .loading-bar-bg { width: 100%; height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+        .loading-bar-fill { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease; }
+
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+
+        /* === ОСНОВНОЙ UI === */
+        .app { padding: 20px; padding-bottom: 90px; display: none; opacity: 0; transition: opacity 0.5s; }
+        .app.visible { display: block; opacity: 1; }
+
+        /* Шапка */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .user-block { display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 44px; height: 44px; border-radius: 50%; background: #333; background-size: cover; border: 2px solid var(--primary); }
+        .user-meta h2 { font-size: 16px; margin: 0; font-weight: 700; }
+        .rank-badge { font-size: 12px; color: var(--primary); background: rgba(59, 130, 246, 0.1); padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+        
+        .bell-btn { position: relative; font-size: 20px; color: var(--text); background: var(--card-bg); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .bell-dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; background: var(--danger); border-radius: 50%; border: 2px solid var(--card-bg); display: none; }
+
+        /* Карта */
+        .card-3d {
+            height: 200px; background: linear-gradient(135deg, #0f172a, #1e293b);
+            border-radius: 24px; padding: 24px; color: white; position: relative;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5); overflow: hidden; margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transform-style: preserve-3d; transition: transform 0.1s;
+        }
+        .card-3d::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%); pointer-events: none;
+        }
+        .card-top { display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; }
+        .chip { width: 40px; height: 30px; background: linear-gradient(135deg, #fbbf24, #d97706); border-radius: 6px; }
+        .pay-logo { font-weight: 900; font-style: italic; font-size: 18px; letter-spacing: -1px; }
+        .balance-block .label { font-size: 12px; opacity: 0.7; }
+        .balance-block .amount { font-size: 32px; font-weight: 800; font-family: 'Inter', monospace; }
+        .card-bottom { display: flex; justify-content: space-between; align-items: end; margin-top: 20px; }
+        .status-pill { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; font-size: 12px; text-transform: uppercase; font-weight: 600; }
+
+        /* Навигация */
+        .tabs { display: flex; background: var(--card-bg); padding: 5px; border-radius: 16px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 12px; text-align: center; font-weight: 600; font-size: 14px; color: var(--text-muted); border-radius: 12px; cursor: pointer; transition: 0.3s; }
+        .tab.active { background: var(--primary); color: white; box-shadow: 0 4px 12px var(--primary-glow); }
+
+        /* Список банков */
+        .section-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; }
+        .bank-list { display: flex; flex-direction: column; gap: 12px; }
+        .bank-item {
+            background: var(--card-bg); padding: 16px; border-radius: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s;
+        }
+        .bank-item:active { transform: scale(0.98); }
+        .bank-item.vip { border: 1px solid var(--gold); box-shadow: 0 0 15px var(--gold-glow); background: linear-gradient(to right, #18181b, #272005); }
+        .bank-icon { width: 40px; height: 40px; border-radius: 10px; background: #333; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-right: 12px; }
+        .bank-info h3 { margin: 0; font-size: 15px; font-weight: 700; }
+        .bank-info p { margin: 3px 0 0; font-size: 12px; color: var(--text-muted); }
+        .bank-arrow { color: var(--text-muted); }
+
+        /* Модальные окна и страницы */
+        .page-view { display: none; }
+        .page-view.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Страница Банка */
+        .bank-hero { text-align: center; padding: 20px 0; }
+        .bank-logo-lg { width: 80px; height: 80px; background: #333; border-radius: 20px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 30px; border: 2px solid var(--primary); }
+        
+        .service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .service-card { background: var(--card-bg); padding: 15px; border-radius: 16px; text-align: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); }
+        .service-card.selected { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+        .service-icon { font-size: 24px; color: var(--primary); margin-bottom: 8px; }
+
+        /* Слайдеры */
+        .input-box { background: var(--card-bg); padding: 20px; border-radius: 16px; margin-bottom: 20px; }
+        .range-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: var(--text-muted); }
+        .range-val { font-weight: 700; color: white; font-family: monospace; }
+        input[type=range] { width: 100%; accent-color: var(--primary); margin-bottom: 20px; }
+
+        /* Кнопка действия */
+        .main-btn {
+            width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 16px;
+            color: white; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 30px var(--primary-glow);
+        }
+
+        /* Профиль (Активные продукты) */
+        .product-card { 
+            background: #202025; padding: 16px; border-radius: 16px; margin-bottom: 10px; 
+            border-left: 4px solid var(--primary); position: relative;
+        }
+        .product-card.loan { border-left-color: var(--danger); }
+        .product-card.depo { border-left-color: var(--success); }
+
+        /* Уведомления */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 10000; display: none;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+        }
+        .modal-content { background: #18181b; padding: 25px; border-radius: 24px; width: 100%; max-width: 350px; }
+        
+        .back-link { margin-bottom: 10px; cursor: pointer; color: var(--text-muted); display: inline-block; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="logo-container">
+            <div class="logo-circle">B</div>
+        </div>
+        <div class="loading-steps">
+            <div class="step-text" id="load-text">Connecting...</div>
+            <div class="loading-bar-bg">
+                <div class="loading-bar-fill" id="load-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app" id="app">
+        
+        <div class="header">
+            <div class="user-block">
+                <div class="avatar" id="avatar"></div>
+                <div class="user-meta">
+                    <h2 id="username">Loading...</h2>
+                    <span class="rank-badge" id="rank">Skeleton 🦴</span>
+                </div>
+            </div>
+            <div class="bell-btn" onclick="openNotifications()">
+                <i class="fa-regular fa-bell"></i>
+                <div class="bell-dot" id="bell-dot"></div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="setView('market')">Рынок</div>
+            <div class="tab" onclick="setView('profile')">Профиль</div>
+        </div>
+
+        <div id="view-market" class="page-view active">
+            <div class="card-3d" id="card3d">
+                <div class="card-top">
+                    <div class="pay-logo">BidonPay</div>
+                    <div class="chip"></div>
+                </div>
+                <div class="balance-block">
+                    <div class="label">Total Balance</div>
+                    <div class="amount"><span id="balance">0</span> ₮</div>
+                </div>
+                <div class="card-bottom">
+                    <div style="font-size:12px; opacity:0.6;">**** 4021</div>
+                    <div class="status-pill" id="user-status">GUEST</div>
+                </div>
+            </div>
+
+            <div class="section-title">Каталог Банков</div>
+            <div class="bank-list" id="bank-list-container">
+                <div style="text-align: center; color: #555; padding: 20px;">Нет доступных банков</div>
+            </div>
+        </div>
+
+        <div id="view-profile" class="page-view">
+            
+            <div id="my-bank-section" style="display: none; margin-bottom: 25px;">
+                <div class="section-title">Мой Банк</div>
+                <div class="bank-item vip">
+                    <div class="bank-icon" style="background:var(--gold); color:black;"><i class="fa-solid fa-crown"></i></div>
+                    <div class="bank-info" onclick="manageMyBank()">
+                        <h3 id="my-bank-name">My Bank</h3>
+                        <p>Капитал: <span id="my-bank-capital">0</span> ₮</p>
+                    </div>
+                    <div style="padding: 10px;" onclick="topUpCapital()">
+                        <i class="fa-solid fa-circle-plus" style="color:var(--success); font-size: 24px;"></i>
+                    </div>
+                    <div class="bank-arrow" onclick="manageMyBank()">⚙️ ></div>
+                </div>
+            </div>
+            
+            <div id="create-bank-btn" style="display: none; margin-bottom: 25px;">
+                <button class="main-btn" onclick="createBankRequest()" style="background: linear-gradient(135deg, #333, #555);">
+                    <i class="fa-solid fa-plus"></i> Создать свой банк (10М)
+                </button>
+            </div>
+
+            <div class="section-title">Активные услуги</div>
+            <div id="active-products">
+                <div style="text-align: center; color: #555; padding: 20px;">У вас нет активных кредитов или вкладов</div>
+            </div>
+        </div>
+
+        <div id="view-bank-detail" class="page-view">
+            <div class="back-link" onclick="setView('market')">< Back</div>
+            
+            <div class="bank-hero">
+                <div class="bank-logo-lg"><i class="fa-solid fa-building-columns"></i></div>
+                <h2 id="detail-bank-name">Bank Name</h2>
+                <span class="rank-badge" id="detail-bank-id">ID: #001</span>
+            </div>
+
+            <div class="service-grid">
+                <div class="service-card selected" onclick="selectService('loan')" id="srv-loan">
+                    <div class="service-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+                    <div>Кредит</div>
+                </div>
+                <div class="service-card" onclick="selectService('depo')" id="srv-depo">
+                    <div class="service-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                    <div>Вклад</div>
+                </div>
+                <div class="service-card" onclick="selectService('ins')" id="srv-ins">
+                    <div class="service-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <div>Страховка</div>
+                </div>
+            </div>
+
+            <div id="service-content">
+                <div class="input-box">
+                    <div class="range-header"><span>Сумма</span><span class="range-val" id="calc-amount-val">5000</span></div>
+                    <input type="range" id="calc-amount" min="1000" max="100000" step="1000" value="5000" oninput="updateCalc()">
+                    
+                    <div class="range-header" id="row-days"><span>Срок (дней)</span><span class="range-val" id="calc-days-val">5</span></div>
+                    <input type="range" id="calc-days" min="1" max="30" step="1" value="5" oninput="updateCalc()">
+                </div>
+
+                <div class="product-card" style="border-left-color: var(--primary);">
+                    <div class="range-header"><span>Ставка</span><span class="range-val" id="detail-rate">5%</span></div>
+                    <div class="range-header"><span>Итого</span><span class="range-val" style="color:var(--primary); font-size: 18px;" id="detail-result">5250 ₮</span></div>
+                </div>
+
+                <button class="main-btn" onclick="submitService()" id="detail-btn">ОФОРМИТЬ</button>
+            </div>
+        </div>
+
+        <div id="view-manage" class="page-view">
+            <div class="back-link" onclick="setView('profile')">< Back</div>
+            <div class="section-title">Настройки Банка</div>
+            
+            <div class="input-box">
+                <div class="range-header">
+                    <span>Кредитная ставка (%)</span>
+                    <span class="range-val" id="owner-loan-val">5.0</span>
+                </div>
+                <input type="range" id="owner-loan-rate" min="0" max="50" step="0.1" value="5" oninput="document.getElementById('owner-loan-val').innerText = this.value">
+                
+                <div class="range-header" style="margin-top:20px;">
+                    <span>Депозитная ставка (%)</span>
+                    <span class="range-val" id="owner-depo-val">2.0</span>
+                </div>
+                <input type="range" id="owner-depo-rate" min="0" max="20" step="0.1" value="2" oninput="document.getElementById('owner-depo-val').innerText = this.value">
+            </div>
+
+            <button class="main-btn" onclick="saveSettings()">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+        </div>
+
+    </div>
+
+    <div class="modal" id="notif-modal" onclick="closeNotifications(event)">
+        <div class="modal-content">
+            <h3 style="margin-top:0">Уведомления</h3>
+            <div id="notif-list">
+                <div style="padding: 10px; border-bottom: 1px solid #333;">Нет новых уведомлений</div>
+            </div>
+            <button class="main-btn" style="margin-top:20px; padding: 10px;" onclick="document.getElementById('notif-modal').style.display='none'">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const steps = [
+            { t: "Biometric Scan...", w: "30%" },
+            { t: "Decrypting Wallet...", w: "60%" },
+            { t: "Connecting to Satellite...", w: "80%" },
+            { t: "Welcome to BidonPay", w: "100%" }
+        ];
+        let stepIdx = 0;
+        
+        function runLoader() {
+            if(stepIdx >= steps.length) {
+                document.getElementById('loader').style.opacity = '0';
+                document.querySelector('.app').classList.add('visible');
+                setTimeout(() => document.getElementById('loader').style.display='none', 500);
+                return;
+            }
+            document.getElementById('load-text').innerText = steps[stepIdx].t;
+            document.getElementById('load-bar').style.width = steps[stepIdx].w;
+            stepIdx++;
+            setTimeout(runLoader, 600);
+        }
+        runLoader();
+
+        const params = new URLSearchParams(window.location.search);
+        
+        let userData = {
+            name: params.get('user_name') || 'Guest',
+            rank: params.get('rank') || 'Скелет 🦴',
+            balance: parseInt(params.get('balance')) || 0,
+            has_bank: params.get('has_bank') === '1',
+            status: 'Guest'
+        };
+
+        document.getElementById('username').innerText = userData.name;
+        document.getElementById('rank').innerText = userData.rank;
+        document.querySelectorAll('#balance').forEach(el => el.innerText = userData.balance.toLocaleString());
+        
+        if (tg.initDataUnsafe?.user?.photo_url) {
+            document.getElementById('avatar').style.backgroundImage = `url('${tg.initDataUnsafe.user.photo_url}')`;
+        }
+
+        if (userData.has_bank) {
+            userData.status = 'ENTREPRENEUR';
+            document.getElementById('user-status').style.color = 'var(--gold)';
+            document.getElementById('my-bank-section').style.display = 'block';
+            document.getElementById('my-bank-capital').innerText = urlParams.get('my_bank_capital') || "0";
+            document.getElementById('my-bank-name').innerText = params.get('my_bank_name') || 'My Bank';
+            const lRate = params.get('loan_rate') || 5;
+            const dRate = params.get('depo_rate') || 2;
+            document.getElementById('owner-loan-rate').value = lRate;
+            document.getElementById('owner-loan-val').innerText = lRate;
+            document.getElementById('owner-depo-rate').value = dRate;
+            document.getElementById('owner-depo-val').innerText = dRate;
+        } else {
+            document.getElementById('create-bank-btn').style.display = 'block';
+        }
+        document.getElementById('user-status').innerText = userData.status;
+
+        let banks = [];
+        try {
+            const rawBanks = params.get('banks_json');
+            if(rawBanks) banks = JSON.parse(decodeURIComponent(rawBanks));
+        } catch(e) {}
+
+        if (banks.length === 0) {
+            banks = [
+                { id: 1, name: "Imperium Trust", vip: true, loan_rate: 5, capital: 5000000, depo_rate: 2 },
+                { id: 2, name: "Gamma Finance", vip: false, loan_rate: 7, capital: 1000000, depo_rate: 3 }
+            ];
+        }
+
+        const list = document.getElementById('bank-list-container');
+        list.innerHTML = "";
+        banks.sort((a,b) => b.vip - a.vip);
+
+        banks.forEach(b => {
+            const el = document.createElement('div');
+            el.className = `bank-item ${b.vip ? 'vip' : ''}`;
+            el.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <div class="bank-icon" style="${b.vip ? 'color:var(--gold)' : ''}">
+                        <i class="fa-solid fa-building-columns"></i>
+                    </div>
+                    <div class="bank-info">
+                        <h3>${b.name} ${b.vip ? '<i class="fa-solid fa-circle-check" style="color:var(--gold); font-size:12px;"></i>' : ''}</h3>
+                        <p>Кредит: ${b.loan_rate}% • Вклад: ${b.depo_rate}%</p>
+                    </div>
+                </div>
+                <div class="bank-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            `;
+            el.onclick = () => openBankDetail(b);
+            list.appendChild(el);
+        });
+
+        let activeProducts = [];
+        try {
+            const rawProd = params.get('active_products_json');
+            if(rawProd) activeProducts = JSON.parse(decodeURIComponent(rawProd));
+        } catch(e) {}
+
+        const prodList = document.getElementById('active-products');
+        if (activeProducts.length > 0) {
+            prodList.innerHTML = "";
+            activeProducts.forEach(p => {
+                const el = document.createElement('div');
+                el.className = `product-card ${p.type === 'loan' ? 'loan' : 'depo'}`;
+                el.innerHTML = `
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-weight:bold; font-size:14px;">${p.bank_name}</span>
+                        <span style="font-size:10px; opacity:0.7;">#${p.id}</span>
+                    </div>
+                    <div style="font-size:18px; font-weight:700; margin:5px 0;">${p.amount} ₮</div>
+                    <div style="display:flex; justify-content:space-between; align-items:end;">
+                        <div style="font-size:12px; color:#aaa;">${p.type === 'loan' ? 'Кредит' : 'Вклад'}</div>
+                        <button onclick="requestClose('${p.type}', ${p.id})" style="background:rgba(255,255,255,0.1); border:none; color:white; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:10px;">
+                            Закрыть 🔒
+                        </button>
+                    </div>
+                `;
+                prodList.appendChild(el);
+            });
+        } else {
+             prodList.innerHTML = '<div style="text-align: center; color: #555; padding: 20px;">У вас нет активных услуг</div>';
+        }
+
+        function topUpCapital() {
+            const amount = prompt("Введите сумму для пополнения капитала банка:");
+            if (amount && parseInt(amount) > 0) {
+                fireConfetti();
+                tg.sendData(JSON.stringify({ 
+                    action: "top_up_capital", 
+                    amount: parseInt(amount) 
+                }));
+            }
+        }
+
+        function requestClose(type, id) {
+            if(!confirm("Запросить досрочное закрытие? Требуется одобрение владельца банка.")) return;
+            tg.sendData(JSON.stringify({ 
+                action: "request_close", 
+                product_type: type,
+                product_id: id 
+            }));
+        }
+
+        function setView(viewId) {
+            document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('view-' + viewId).classList.add('active');
+            
+            if(viewId === 'market') document.querySelectorAll('.tab')[0].classList.add('active');
+            if(viewId === 'profile') document.querySelectorAll('.tab')[1].classList.add('active');
+        }
+
+        let currentBank = null;
+        let srvType = 'loan';
+
+        function openBankDetail(bank) {
+            currentBank = bank;
+            document.getElementById('detail-bank-name').innerText = bank.name;
+            document.getElementById('detail-bank-id').innerText = "ID: #" + bank.id;
+            selectService('loan');
+            setView('bank-detail');
+        }
+
+        function selectService(type) {
+            srvType = type;
+            document.querySelectorAll('.service-card').forEach(el => el.classList.remove('selected'));
+            document.getElementById('srv-' + type).classList.add('selected');
+
+            const rowDays = document.getElementById('row-days');
+            const daysInput = document.getElementById('calc-days');
+            const btn = document.getElementById('detail-btn');
+            const rateLabel = document.getElementById('detail-rate');
+
+            if (type === 'loan') {
+                rowDays.style.display = 'block';
+                btn.innerText = "ОФОРМИТЬ КРЕДИТ";
+                rateLabel.innerText = (currentBank.loan_rate || 5) + "% / день";
+            } 
+            else if (type === 'depo') {
+                rowDays.style.display = 'none';
+                btn.innerText = "ОТКРЫТЬ ВКЛАД";
+                rateLabel.innerText = (currentBank.depo_rate || 2) + "%";
+            }
+            else if (type === 'ins') {
+                rowDays.style.display = 'block';
+                btn.innerText = "КУПИТЬ СТРАХОВКУ";
+                rateLabel.innerText = "Фикс. цена";
+            }
+            updateCalc();
+        }
+
+        function updateCalc() {
+            const amount = parseInt(document.getElementById('calc-amount').value);
+            const days = parseInt(document.getElementById('calc-days').value);
+            
+            document.getElementById('calc-amount-val').innerText = amount.toLocaleString();
+            document.getElementById('calc-days-val').innerText = days;
+
+            let result = 0;
+            const resEl = document.getElementById('detail-result');
+
+            if (srvType === 'loan') {
+                const profit = Math.floor(amount * (currentBank.loan_rate/100) * days);
+                result = amount + profit;
+                resEl.innerText = result.toLocaleString() + " ₮ (Долг)";
+                resEl.style.color = 'var(--danger)';
+            }
+            else if (srvType === 'depo') {
+                const profit = Math.floor(amount * (currentBank.depo_rate/100));
+                resEl.innerText = "+" + profit.toLocaleString() + " ₮";
+                resEl.style.color = 'var(--success)';
+            }
+            else {
+                result = 5000 + (days * 1000);
+                resEl.innerText = result.toLocaleString() + " ₮";
+                resEl.style.color = 'var(--gold)';
+            }
+        }
+
+        function submitService() {
+            fireConfetti();
+            const data = {
+                action: srvType === 'loan' ? 'take_loan' : (srvType === 'depo' ? 'open_deposit' : 'buy_insurance'),
+                bank_id: currentBank.id,
+                amount: parseInt(document.getElementById('calc-amount').value),
+                days: parseInt(document.getElementById('calc-days').value)
+            };
+            tg.sendData(JSON.stringify(data));
+        }
+
+        function createBankRequest() {
+            const name = prompt("Введите название банка:");
+            if(name) {
+                fireConfetti();
+                tg.sendData(JSON.stringify({ action: "create_bank", name: name }));
+            }
+        }
+
+        function manageMyBank() {
+            setView('manage'); 
+        }
+
+        function saveSettings() {
+            fireConfetti();
+            const data = {
+                action: "save_settings",
+                loan_rate: parseFloat(document.getElementById('owner-loan-rate').value),
+                depo_rate: parseFloat(document.getElementById('owner-depo-rate').value),
+                loan_enabled: 1, depo_enabled: 1, 
+                loan_min: 1000, loan_max: 100000, depo_period: 'day'
+            };
+            tg.sendData(JSON.stringify(data));
+        }
+
+        function fireConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function openNotifications() { document.getElementById('notif-modal').style.display = 'flex'; }
+        function closeNotifications(e) { if(e.target.id === 'notif-modal') e.target.style.display = 'none'; }
+
+    </script>
+</body>
+</html>
