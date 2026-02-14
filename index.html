@@ -415,15 +415,16 @@
         banks.sort((a,b) => b.vip - a.vip);
 
         banks.forEach(b => {
+            const isVip = b.vip || b.is_accredited;
             const el = document.createElement('div');
-            el.className = `bank-item ${b.vip ? 'vip' : ''}`;
+            el.className = `bank-item ${isVip ? 'vip' : ''}`;
             el.innerHTML = `
                 <div style="display:flex; align-items:center;">
-                    <div class="bank-icon" style="${b.vip ? 'color:var(--gold)' : ''}">
+                    <div class="bank-icon" style="${isVip ? 'color:var(--gold)' : ''}">
                         <i class="fa-solid fa-building-columns"></i>
                     </div>
                     <div class="bank-info">
-                        <h3>${b.name} ${b.vip ? '<i class="fa-solid fa-circle-check" style="color:var(--gold); font-size:12px;"></i>' : ''}</h3>
+                        <h3>${b.name} ${isVip ? '<i class="fa-solid fa-circle-check" style="color:var(--gold); font-size:12px;"></i>' : ''}</h3>
                         <p>Кредит: ${b.loan_rate}% • Вклад: ${b.depo_rate}%</p>
                     </div>
                 </div>
