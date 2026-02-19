@@ -279,10 +279,6 @@
                     <div class="service-icon"><i class="fa-solid fa-piggy-bank"></i></div>
                     <div>Вклад</div>
                 </div>
-                <div class="service-card" onclick="selectService('ins')" id="srv-ins">
-                    <div class="service-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div>Страховка</div>
-                </div>
             </div>
 
             <div id="service-content">
@@ -526,11 +522,6 @@
                 btn.innerText = "ОТКРЫТЬ ВКЛАД";
                 rateLabel.innerText = (currentBank.depo_rate || 2) + "%";
             }
-            else if (type === 'ins') {
-                rowDays.style.display = 'block';
-                btn.innerText = "КУПИТЬ СТРАХОВКУ";
-                rateLabel.innerText = "Фикс. цена";
-            }
             updateCalc();
         }
 
@@ -555,17 +546,12 @@
                 resEl.innerText = "+" + profit.toLocaleString() + " ₮";
                 resEl.style.color = 'var(--success)';
             }
-            else {
-                result = 5000 + (days * 1000);
-                resEl.innerText = result.toLocaleString() + " ₮";
-                resEl.style.color = 'var(--gold)';
-            }
         }
 
         function submitService() {
             fireConfetti();
             const data = {
-                action: srvType === 'loan' ? 'take_loan' : (srvType === 'depo' ? 'open_deposit' : 'buy_insurance'),
+                action: srvType === 'loan' ? 'take_loan' : 'open_deposit',
                 bank_id: currentBank.id,
                 amount: parseInt(document.getElementById('calc-amount').value),
                 days: parseInt(document.getElementById('calc-days').value)
@@ -611,3 +597,4 @@
     </script>
 </body>
 </html>
+
